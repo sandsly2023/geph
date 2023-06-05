@@ -1,5 +1,5 @@
 name: build geph
-on: push
+on: workflow_dispatch
 jobs:
   build_on_linux:
     runs-on: ubuntu-20.04
