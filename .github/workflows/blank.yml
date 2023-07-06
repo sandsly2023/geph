@@ -1,6 +1,8 @@
 name: build geph two system
-
-on: [push]
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '45 11 * * *'
 jobs:
 # 编译22.04的迷雾通，用于mint 21
   build_2204_geph:
