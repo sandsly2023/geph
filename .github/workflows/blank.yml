@@ -1,4 +1,5 @@
 name: build geph two system
+
 on: [push]
 jobs:
 # 编译22.04的迷雾通，用于mint 21
