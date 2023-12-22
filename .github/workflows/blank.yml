@@ -1,0 +1,279 @@
+name: build geph two system
+on:
+  schedule:
+    - cron: "00 0 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of days.'
+        required: false
+      minimum_runs:
+        description: 'The minimum runs to keep for each workflow.'
+        required: false
+      delete_workflow_pattern:
+        description: 'The name or filename of the workflow. if not set then it will target all workflows.'
+        required: false
+      delete_workflow_by_state_pattern:
+        description: 'Remove workflow by state: active, deleted, disabled_fork, disabled_inactivity, disabled_manually'
+        required: false
+      delete_run_by_conclusion_pattern:
+        description: 'Remove workflow by conclusion: action_required, cancelled, failure, skipped, success'
+        required: true
+        default: "All"
+      dry_run:
+        description: 'Only log actions, do not perform any delete operations.'
+        required: false
+
+jobs:
+  del_runs:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: ${{ github.event.inputs.days }}
+          keep_minimum_runs: ${{ github.event.inputs.minimum_runs }}
+          delete_workflow_pattern: ${{ github.event.inputs.delete_workflow_pattern }}
+          delete_workflow_by_state_pattern: ${{ github.event.inputs.delete_workflow_by_state_pattern }}
+          delete_run_by_conclusion_pattern: ${{ github.event.inputs.delete_run_by_conclusion_pattern }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+
+  # if_geph_version:
+  #   name: geph_version
+  #   needs: del_runs
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: get_geph_version 
+  #       run: |
+  #         echo "action_state=$(curl -s https://raw.githubusercontent.com/geph-official/gephgui-pkg/master/blobs/linux-x64/VERSION | sed 's@v@@g')" >> "$GITHUB_ENV"
+  #         echo "release_version=$(curl -s https://geph.io/zhs | grep 'linux' | head -1 | awk -F '"' '{print $6}' | awk -F '/' '{print $(NF-1)}')" >> "$GITHUB_ENV"
+  #     - name: if_geph_version
+  #       run: |
+  #         if [ "${{ env.action_state }}" == "${{ env.release_version }}" ];then
+  #           exit 1
+  #         else
+  #           exit 1
+  #         fi
+
+
+
+# 编译18.04的迷雾通，用于mint 19.3
+  build_1804_geph:
+    name: Build_1804
+    permissions:
+        contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+      - name: Run Docker container to compile assets
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ubuntu:18.04
+          options: -v ${{ github.workspace }}:/var/www
+          run: |
+            
+            # 安装依赖软件包
+            apt-get update
+            apt-get install curl git build-essential -y
+            apt install libgtk-3-dev libappindicator3-dev libwebkit2gtk-4.0-dev librsvg2-dev libssl-dev patchelf strace libpango1.0-dev libgdk-pixbuf2.0-dev gcc clang g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev gcc g++ make -y
+            
+            # 安装 rust 软件
+            curl https://sh.rustup.rs -sSf | sh -s -- -y
+            export PATH="$HOME/.cargo/bin:$PATH"
+            
+            # 安装 node npm 软件
+            curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+            apt-get install nodejs yarn -y
+
+            # 拉取迷雾通github仓库
+            git clone --recurse-submodules https://github.com/geph-official/gephgui-wry.git
+
+            # 编译 gephgui-wry 图像界面
+            cd /gephgui-wry/gephgui
+            npm install
+            npm run build
+
+            # 编译 gephgui-wry 软件
+            cd /gephgui-wry
+            cargo build --release
+            cp /gephgui-wry/target/release/gephgui-wry /var/www
+            cat /etc/os-release > /var/www/lsb_release
+
+      # 创建build文件夹   
+      - name: Create build folder
+        run:  |
+          mkdir ./build
+          cp lsb_release ./build
+
+      # 复制图形界面程序到build文件夹
+      - name: Copy gephgui-wry
+        run: |
+          mv gephgui-wry ./build
+
+      # 下载主程序
+      - name: Download gephgui-pkg
+        run: |
+          git clone https://github.com/geph-official/gephgui-pkg.git
+          cp -r gephgui-pkg/blobs/linux-x64/* ./build && cd ./build
+          bash -x pull-geph4-client.sh
+          mv ./pac-real ./pac
+          rm -rf ./pkexec ./pull-geph4-client.sh
+          echo "action_state=$(cat ./VERSION)" >> "$GITHUB_ENV"
+          echo "ubu_release=$(cat lsb_release | grep VERSION_ID | awk -F '"' '{print $2}' | tr -d ".")" >> "$GITHUB_ENV"
+
+      # 打包TAR程序
+      - name: Create TAR archive
+        run: |
+          tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
+          mkdir release && cp build_*.tar.xz ./release
+
+      # 发布release
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*
+          tag: geph4_${{ env.action_state }}
+          overwrite: true
+          file_glob: true
+
+
+
+# 编译20.04的迷雾通，用于mint 20.3
+  build_2004_geph:
+    name: Build_2004
+    permissions:
+        contents: write
+    # needs: if_geph_version
+    runs-on: ubuntu-20.04
+    steps:
+      # 创建构建文件夹
+      - name: Create build folder
+        run: mkdir ./build
+
+      # 安装依赖软件包
+      - name: Install software
+        run: |
+          sudo apt-get update
+          sudo apt-get install libgtk-3-dev libappindicator3-dev libwebkit2gtk-4.0-dev librsvg2-dev libssl-dev patchelf strace libpango1.0-dev libgdk-pixbuf2.0-dev gcc clang g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev  build-essential curl
+      
+      # 拉取迷雾通github仓库
+      - name: Clone gephgui-wry
+        run: git clone --recurse-submodules https://github.com/geph-official/gephgui-wry.git
+
+      # 构建所需依赖文件
+      - name: Build gephgui
+        run: |
+          cd gephgui-wry/gephgui
+          npm install
+          npm run build
+
+      # 构建图形界面程序
+      - name: Build gephgui-wry
+        run: |
+          cd gephgui-wry
+          cargo build --release
+
+      # 复制图形界面程序到build文件夹
+      - name: Copy gephgui-wry
+        run: cp gephgui-wry/target/release/gephgui-wry ./build
+
+      # 下载主程序
+      - name: Download gephgui-pkg
+        run: |
+          git clone https://github.com/geph-official/gephgui-pkg.git
+          cp -r gephgui-pkg/blobs/linux-x64/* ./build && cd ./build
+          bash -x pull-geph4-client.sh
+          mv ./pac-real ./pac
+          rm -rf ./pkexec ./pull-geph4-client.sh
+          echo "action_state=$(cat ./VERSION)" >> "$GITHUB_ENV"
+          echo "ubu_release=$(lsb_release -r | awk '{print $NF}' | cat | tr -d '.')" >> "$GITHUB_ENV"
+
+      # 打包TAR程序
+      - name: Create TAR archive
+        run: |
+          tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
+          mkdir release && cp build_*.tar.xz ./release
+
+      # 发布release
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*
+          tag: geph4_${{ env.action_state }}
+          overwrite: true
+          file_glob: true
+
+
+
+# 编译22.04的迷雾通，用于mint 21
+  build_2204_geph:
+    name: Build_2204
+    permissions:
+        contents: write
+    # needs: if_geph_version
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Create build folder
+        run:  |
+          mkdir ./build
+
+      # 安装依赖软件包
+      - name: Install software
+        run: |
+          sudo apt-get update
+          sudo apt-get install libgtk-3-dev libappindicator3-dev libwebkit2gtk-4.0-dev librsvg2-dev libssl-dev patchelf strace libpango1.0-dev libgdk-pixbuf2.0-dev gcc clang g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev  build-essential curl
+      
+      # 拉取迷雾通github仓库
+      - name: Clone gephgui-wry
+        run: git clone --recurse-submodules https://github.com/geph-official/gephgui-wry.git
+
+      # 构建所需依赖文件
+      - name: Build gephgui
+        run: |
+          cd gephgui-wry/gephgui
+          npm install
+          npm run build
+
+      # 构建图形界面程序
+      - name: Build gephgui-wry
+        run: |
+          cd gephgui-wry
+          cargo build --release
+
+      # 复制图形界面程序到build文件夹
+      - name: Copy gephgui-wry
+        run: cp gephgui-wry/target/release/gephgui-wry ./build
+
+      # 下载主程序
+      - name: Download gephgui-pkg
+        run: |
+          git clone https://github.com/geph-official/gephgui-pkg.git
+          cp -r gephgui-pkg/blobs/linux-x64/* ./build && cd ./build
+          bash -x pull-geph4-client.sh
+          mv ./pac-real ./pac
+          rm -rf ./pkexec ./pull-geph4-client.sh
+          echo "action_state=$(cat ./VERSION)" >> "$GITHUB_ENV"
+          echo "ubu_release=$(lsb_release -r | awk '{print $NF}' | cat | tr -d '.')" >> "$GITHUB_ENV"
+
+      # 打包TAR程序
+      - name: Create TAR archive
+        run: |
+          tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
+          mkdir release && cp build_*.tar.xz ./release
+
+      # 发布release
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: release/*
+          tag: geph4_${{ env.action_state }}
+          overwrite: true
+          file_glob: true
