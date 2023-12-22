@@ -125,6 +125,7 @@ jobs:
           rm -rf ./pkexec ./pull-geph4-client.sh
           echo "action_state=$(cat ./VERSION)" >> "$GITHUB_ENV"
           echo "ubu_release=$(cat lsb_release | grep VERSION_ID | awk -F '"' '{print $2}' | tr -d ".")" >> "$GITHUB_ENV"
+          rm -rf lsb_release
 
       # 打包TAR程序
       - name: Create TAR archive
