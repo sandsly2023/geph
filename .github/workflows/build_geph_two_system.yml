@@ -131,7 +131,10 @@ jobs:
       - name: Create TAR archive
         run: |
           tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
-          mkdir release && cp build_*.tar.xz ./release
+          FILE=./build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz
+          DGST=$FILE.dgst
+          openssl dgst -sha256 $FILE | sed 's/([^)]*)//g' >>$DGST
+          mkdir release && cp build_*.tar.xz* ./release
 
       # 发布release
       - name: Upload binaries to release
@@ -199,7 +202,10 @@ jobs:
       - name: Create TAR archive
         run: |
           tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
-          mkdir release && cp build_*.tar.xz ./release
+          FILE=./build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz
+          DGST=$FILE.dgst
+          openssl dgst -sha256 $FILE | sed 's/([^)]*)//g' >>$DGST
+          mkdir release && cp build_*.tar.xz* ./release
 
       # 发布release
       - name: Upload binaries to release
@@ -267,7 +273,10 @@ jobs:
       - name: Create TAR archive
         run: |
           tar -Jcvf build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz ./build
-          mkdir release && cp build_*.tar.xz ./release
+          FILE=./build_"${{ env.action_state }}"_ubu"${{ env.ubu_release }}".tar.xz
+          DGST=$FILE.dgst
+          openssl dgst -sha256 $FILE | sed 's/([^)]*)//g' >>$DGST
+          mkdir release && cp build_*.tar.xz* ./release
 
       # 发布release
       - name: Upload binaries to release
