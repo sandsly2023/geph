@@ -25,7 +25,7 @@ jobs:
               librsvg2-dev libssl-dev patchelf strace \
               libpango1.0-dev libgdk-pixbuf2.0-dev \
               gcc g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev make \
-              ca-certificates libsoup2.4-dev
+              ca-certificates libsoup2.4-dev libwebkit2gtk-4.0-dev
             
             # 确保 pkg-config 可以找到 webkit2gtk-4.0
             export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH"
