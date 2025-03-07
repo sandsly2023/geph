@@ -310,7 +310,9 @@ jobs:
                 librsvg2-dev libssl-dev patchelf strace \
                 libpango1.0-dev libgdk-pixbuf2.0-dev \
                 gcc g++ zlib1g-dev libmpc-dev libmpfr-dev libgmp-dev make \
-                ca-certificates
+                ca-certificates libsoup2.4-dev
+
+                export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH"
   
               # 安装 Rust
               curl https://sh.rustup.rs -sSf | sh -s -- -y
