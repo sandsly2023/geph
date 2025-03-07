@@ -4,14 +4,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  del_runs:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Delete workflow runs
-        uses: Mattraks/delete-workflow-runs@v2
-
   build_debian12_geph:
     name: Build_Debian12
     permissions:
