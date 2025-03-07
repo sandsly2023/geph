@@ -1,6 +1,7 @@
-name: build geph two system
-
+name: 编译迷雾通
 on:
+  schedule:
+    - cron: "00 0 * * *"
   workflow_dispatch:
 
 jobs:
@@ -9,8 +10,7 @@ jobs:
     name: Build_2404
     permissions:
         contents: write
-    # needs: if_geph_version
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Create build folder
         run:  |
