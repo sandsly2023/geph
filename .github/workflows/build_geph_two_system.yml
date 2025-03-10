@@ -1,4 +1,4 @@
-name: build geph two system
+name: 编译迷雾通
 on:
   workflow_dispatch:
 
