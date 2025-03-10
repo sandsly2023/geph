@@ -36,6 +36,7 @@ jobs:
       # 构建图形界面程序
       - name: Build gephgui-wry
         run: |
+          export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
           cd gephgui-wry
           cargo build --release
 
